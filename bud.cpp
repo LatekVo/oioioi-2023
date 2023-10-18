@@ -13,11 +13,19 @@ enum class Stat {
 	LENGTH = 3
 };
 
+// this whole bit section is a subject to change
 enum class Bit {
-	FILLED = 0b0001,
-	HOR_CHECKED = 0b0010,
-	VER_CHECKED = 0b0100,
-	USED = 0b1000
+	FILLED = 		0b00000001, // both versions
+	HOR_CHECKED = 	0b00000010, // old - 1.0
+	VER_CHECKED = 	0b00000100, // old - 1.0
+	// vvv latest implementation bits vvv
+	USED = 			0b00001000, // used in 2.0
+	START = 		0b00010000, // used in 2.0
+};
+
+struct StartingPoint {
+	int x = -1, y = -1, rot = -1; // rot (0=h, 1=v)
+	int length = -2;
 };
 
 int main() {
@@ -43,6 +51,19 @@ int main() {
 	// then use that as a reference point for binary search walkback
 	// thought: if we find a longer than previous airstrip, then the shorter one is automatically 100% possible as well
 
+	// final approach, the least complex and the most optimal approach:
+	// * find all starting points, measure their length
+	// if runways=1: 
+	// 		* get longest, output longest, end of script
+	// if runways=2:
+	//		* get largest single runway, divide by 2, cache as a potential output (redundant if todo is completed) 
+	//		* check every possible combination in a binary search style, 
+	//		  with each check being performed on every possible runway 
+	//		  until a solution for specified length is found
+	//		* TODO: check starting points that are created by splitting other runways with the one currently checked (hardest and last to implement)
+	//		* output largest one, end of script
+	//
+
 	// n*n vector
 	/* b0 - filled or not (1)
 	 * b1 - horizontally checked (1)
@@ -50,8 +71,9 @@ int main() {
 	 * b3 - currently occupied by second runway (1)
 	 */
 	std::array<std::array<unsigned char, 1500>, 1500> field;
+	std::vector<StartingPoint> startingPoints;
 
-	// transfer data to field
+	// transfer data to field vvv
 	for (int y = 0; y < airportSize; y++) {
 		std::string line;
 		//std::cin.ignore(); 
@@ -65,6 +87,51 @@ int main() {
 		}
 	}
 
+	// transfer field into starting points vvv (verified by a set of cout's)
+	for (int y = 0; y < airportSize; y++) {
+		for (int x = 0; x < airportSize; x++) {
+			// check if space is available
+			if (field[y][x] & (unsigned char)Bit::FILLED) {
+				//std::cout << "..";
+				continue;
+			}
+
+			// extend horizontally and vertically vvv
+			for (int horVer = 0; horVer <= 1; horVer++) {
+				// starting points are places with stoppers behind them, in other words first points of a series
+				if (horVer == 0 ? 
+						// away from left wall, previous point is empty space: break
+						(x > 0 && !(field[y][x-1] & (unsigned char)Bit::FILLED)) : 
+						(y > 0 && !(field[y-1][x] & (unsigned char)Bit::FILLED))) {
+					// not the first point of a series: break;
+					//std::cout << '.';
+					continue;
+				}
+				
+				//std::cout << ((horVer == 0) ? 'H' : 'V');
+				// if viable, create new starting point and extend it
+				StartingPoint newPoint;
+				newPoint.x = x;
+				newPoint.y = y;
+				newPoint.length = 0;
+				newPoint.rot = horVer;
+				for (int len = 0;
+					 horVer == 0 ? 
+						// current point is empty, and not over the border
+						(x + len < airportSize && !(field[y][x+len] & (unsigned char)Bit::FILLED)) : 
+						(y + len < airportSize && !(field[y+len][x] & (unsigned char)Bit::FILLED)) ; len++) {
+					newPoint.length = len;			
+				}
+				startingPoints.push_back(newPoint);
+			}
+		}
+		//std::cout << std::endl;
+	}
+
+	// NEW CODE (v2.0), currently WIP, segment by segment
+	// --- BORDER ---
+	// OLD CODE (v1.0), currently functional
+
 	// parse data to complete plan 1 (see line 41)
 	for (int y = 0; y < airportSize; y++) {
 		// std::cout << std::endl;
@@ -76,20 +143,19 @@ int main() {
 			if (field[y][x] & (unsigned char)Bit::FILLED) {
 				// skip checked / occupied path
 				// verified by: std::cout << " | " << x << ' ' << y << " BREAK ";
-				break;
+				continue;
 			}	
 			
 			// extension check
 			for (int horVer = 0; horVer <= 1; horVer++) {	
 				for (int len = 0; ; len++) {
 					int offsetPos = (horVer == 0) ? x + len : y + len; 
-					if (offsetPos >= airportSize) {
-						// TODO: finalize in this situation as well
-						break;
-					}
+					 
+					// finalize if one of the stopping rules is met
 					unsigned char currentByte = (horVer == 0) ? field[y][offsetPos] : field[offsetPos][x];
-					// std::cout << "O: [" << x << ',' << y << "], Len: " << len << std::endl;
-					if ((currentByte & (unsigned char)Bit::FILLED) || 
+					//std::cout << "O: [" << x << ',' << y << "], Len: " << len << std::endl;
+					if ((offsetPos >= airportSize) ||
+						(currentByte & (unsigned char)Bit::FILLED) || 
 						(currentByte & (unsigned char)Bit::USED) ||
 						((currentByte & (unsigned char)Bit::HOR_CHECKED) && horVer == 0) ||
 						((currentByte & (unsigned char)Bit::VER_CHECKED) && horVer == 1)) {
