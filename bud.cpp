@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <limits>
+#include <map>
 #include <string>
 #include <sstream>
 #include <array>
@@ -28,6 +30,47 @@ struct StartingPoint {
 	int length = -2;
 };
 
+// collision detection: (1, 2 - runways, O, T - origin and target points)
+// vvv collision vvv
+// 1hor, 2ver X_O1 <= X_O2 && X_T1 >= X_T2 && Y_O1 >= Y_O2 && Y_T1 <= Y_T2 // Xs of 2 within Xs of 1, Ys of 1 within Ys of 2
+// 1ver, 2hor X_O1 >= X_O2 && X_T1 <= X_T2 && Y_O1 <= Y_O2 && Y_T1 >= Y_T2 // Xs of 1 within Xs of 2, Ys of 2 within Ys of 1
+// vvv overlap vvv
+// 1hor, 2hor Y_O1 == Y_O2 && (X_O2 <= X_O1 <= X_T2 || X_O2 <= X_T1 <= X_T2) // O1 between O2 and T2, or T1 between O2 and T2
+// 1ver, 2ver X_O1 == X_O2 && (Y_O2 <= Y_O1 <= Y_T2 || Y_O2 <= Y_T1 <= Y_T2) // O1 between O2 and T2, or T1 between O2 and T2
+bool doesCollide(int x1, int y1, int len1, int r1, int x2, int y2, int len2, int r2) {
+	// TODO: UNIT TEST THIS FUNCTION FOR ALL EXTREME CASES
+	int X_O1 = x1, Y_O1 = y1;
+	int X_T1 = x1, Y_T1 = y1;
+	int X_O2 = x2, Y_O2 = y2;
+	int X_T2 = x2, Y_T2 = y2;
+
+	if (r1 == 0) {
+		X_T1 += len1 + 1;
+	} else {
+		Y_T1 += len1 + 1;
+	}
+	if (r2 == 0) {
+		X_T2 += len2 + 1;
+	} else {
+		Y_T2 += len2 + 1;
+	}
+
+	if (r1 == 0 && r2 == 1) {
+		return X_O1 <= X_O2 && X_T1 >= X_T2 && Y_O1 >= Y_O2 && Y_T1 <= Y_T2;
+	}
+	if (r1 == 1 && r2 == 0) {
+		return X_O1 >= X_O2 && X_T1 <= X_T2 && Y_O1 <= Y_O2 && Y_T1 >= Y_T2;
+	}
+	if (r1 == 0 && r2 == 0) {
+		return Y_O1 == Y_O2 && (X_O2 <= X_O1 <= X_T2 || X_O2 <= X_T1 <= X_T2);
+	}
+	if (r1 == 1 && r2 == 1) {
+		return X_O1 == X_O2 && (Y_O2 <= Y_O1 <= Y_T2 || Y_O2 <= Y_T1 <= Y_T2);
+	}
+
+	return false;
+}
+
 int main() {
 	int airportSize = 0;
 	short runways = 0;
@@ -36,6 +79,7 @@ int main() {
 	// x, y, orientation (h=0), length
 	int longestOne[4] = {0,0,0,0}; 
 	int longestFinal[4] = {0,0,0,0}; // termination and parity achieved
+	int maxLength = -1;
 
 	// 4 approaches for 2 airstrips:
 	// 1: Find max then find match (quickest method, but it enables local lows for airstrip 1, with no counterpart for airstrip 2)
@@ -71,7 +115,7 @@ int main() {
 	 * b3 - currently occupied by second runway (1)
 	 */
 	std::array<std::array<unsigned char, 1500>, 1500> field;
-	std::vector<StartingPoint> startingPoints;
+	std::multimap<int, StartingPoint> startingPoints;
 
 	// transfer data to field vvv
 	for (int y = 0; y < airportSize; y++) {
@@ -86,6 +130,7 @@ int main() {
 			// input verified by: std::cout << (int)field[y][x];
 		}
 	}
+
 
 	// transfer field into starting points vvv (verified by a set of cout's)
 	for (int y = 0; y < airportSize; y++) {
@@ -122,15 +167,81 @@ int main() {
 						(y + len < airportSize && !(field[y+len][x] & (unsigned char)Bit::FILLED)) ; len++) {
 					newPoint.length = len;			
 				}
-				startingPoints.push_back(newPoint);
+				startingPoints.insert(std::pair<int, StartingPoint>(newPoint.length, newPoint));
+				if (newPoint.length > maxLength)
+					maxLength = newPoint.length;
 			}
 		}
 		//std::cout << std::endl;
 	}
 
-	// NEW CODE (v2.0), currently WIP, segment by segment
+	// final conclusion
+	if (runways == 1) {
+		// get longest	
+		std::cout << maxLength + 1;
+		return 0;
+	} else {
+		// binary search for a working length
+		int finalLength = maxLength;
+		//int lowBand = 0, highBand = maxLength;
+		do {
+			// we will start by an iterative approach
+			// find pair in the higher band, if unavailable, lower expectations by one
+			// important: long runways can always be shortened
+			// DONE: here comes the hard part, we have to treat long ones as a very high amount of short ones as well,
+			// in other words, when we place 1 runway, we have to fill in that space and place new starting points in every possible spot
+			// i will (tomorrow) create a second starting point list that will be temporary and exclusive to each runway no. 1 placement
+			// then runway no. 2 will look for anything available both in the pernament and the temporary stock
+			// DONE: also check collisions
+			// DONE: approach for now: we will start with highest band, check every possible combination and lower it by one if nothing works out,
+			// with lowered band, we will treat anything longer than the band as still feasable, but anything shorter will be thrown out for now.
+			
+			// greater or equal to upper bound length (lord have mercy, not the pointers)
+			auto boundItr = startingPoints.lower_bound(finalLength);
+			for (auto itOne = boundItr; itOne != startingPoints.end(); itOne++) {
+				auto obOne = itOne->second;
+				// scale current airstrip, placing starting points at each possible starting point
+				// important: place SPs both at the right/bottom edge, and the right/bottom stub in case we are covering an airstrip that's shorter
+				std::vector<StartingPoint> dynamicStartingPoints;
+				auto dynamicItr = dynamicStartingPoints.begin();
+			
+				// TODO: Last step, add dynamic point detection
+				// for (int i = 0; i < finalLength; i++) {}
+
+				// NOTE before i consider this for 11th time, we do NOT have to consider both extreme positions of runways along their axis of available space
+				// 		dynamicSP will always be out of collision bounds, staticSP can not be moved at all if it's being collided with
+				for (auto itTwo = boundItr; itTwo != startingPoints.end(); itTwo++) {
+					auto obTwo = itTwo->second;
+					if (itOne == itTwo)
+						continue;
+					bool didItCollide = doesCollide(obOne.x, obOne.y, obOne.length, obOne.rot, obTwo.x, obTwo.y, obTwo.length, obTwo.rot);
+					if (!didItCollide) {
+						// success, no collision, this is our answer
+						goto summary;						
+					}
+				}
+				// dynamic loop, measure field until desired finalLength is desired, make sure no collisions occur!
+				for (auto itTwo = dynamicItr; itTwo != dynamicStartingPoints.end(); itTwo++) {
+					auto obTwo = *itTwo;
+					bool didItCollide = doesCollide(obOne.x, obOne.y, obOne.length, obOne.rot, obTwo.x, obTwo.y, obTwo.length, obTwo.rot);
+					if (!didItCollide) {
+						// success
+						goto summary;
+					}
+				}
+			}
+			finalLength--;
+		} while (finalLength > 0);
+		summary:
+		std::cout << finalLength + 1;
+		return 0;
+	}
+
+	// NEW CODE (v2.0), currently functional
 	// --- BORDER ---
-	// OLD CODE (v1.0), currently functional
+	// OLD CODE (v1.0), archived
+	/*	
+	
 
 	// parse data to complete plan 1 (see line 41)
 	for (int y = 0; y < airportSize; y++) {
@@ -198,5 +309,7 @@ int main() {
 	} else {
 		std::cout << longestFinal[(size_t)Stat::LENGTH] + 1;
 	}
+	*/
+
 	return 0;
 }
