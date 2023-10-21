@@ -62,10 +62,14 @@ bool doesCollide(int x1, int y1, int len1, int r1, int x2, int y2, int len2, int
 		return X_O1 >= X_O2 && X_T1 <= X_T2 && Y_O1 <= Y_O2 && Y_T1 >= Y_T2;
 	}
 	if (r1 == 0 && r2 == 0) {
-		return Y_O1 == Y_O2 && (X_O2 <= X_O1 <= X_T2 || X_O2 <= X_T1 <= X_T2);
+		// overlap will never occur in our circumstances
+		// return Y_O1 == Y_O2 && (X_O2 <= X_O1 <= X_T2 || X_O2 <= X_T1 <= X_T2);
+		return false;
 	}
 	if (r1 == 1 && r2 == 1) {
-		return X_O1 == X_O2 && (Y_O2 <= Y_O1 <= Y_T2 || Y_O2 <= Y_T1 <= Y_T2);
+		// overlap will never occur in our circumstances
+		// return X_O1 == X_O2 && (Y_O2 <= Y_O1 <= Y_T2 || Y_O2 <= Y_T1 <= Y_T2);
+		return false;
 	}
 
 	return false;
@@ -203,10 +207,39 @@ int main() {
 				// scale current airstrip, placing starting points at each possible starting point
 				// important: place SPs both at the right/bottom edge, and the right/bottom stub in case we are covering an airstrip that's shorter
 				std::vector<StartingPoint> dynamicStartingPoints;
-				auto dynamicItr = dynamicStartingPoints.begin();
 			
-				// TODO: Last step, add dynamic point detection
+				// NOTE: tested and on small fields, this dynamic point creation works perfectly
 				// for (int i = 0; i < finalLength; i++) {}
+				for (int len = 0; len < obOne.length + 1; len++) {
+					// create new point off to the side of the current runway
+					StartingPoint newPoint;
+					if (obOne.rot == 0) {
+						newPoint.x = obOne.x + len;
+						newPoint.y = obOne.y + 1;
+						newPoint.rot = 1; 
+					} else {
+						newPoint.x = obOne.x + 1;
+						newPoint.y = obOne.y + len;
+						newPoint.rot = 0; 
+					}
+					newPoint.length = 0;
+					dynamicStartingPoints.push_back(newPoint);
+				}
+				// one more point at the tip of the end
+				// TODO: this one unlike the perpendicular DPs does not work.
+				StartingPoint newPoint;
+				if (obOne.rot == 0) {
+					newPoint.x = obOne.x + finalLength + 1;
+					newPoint.y = obOne.y;
+					newPoint.rot = 0; 
+				} else {
+					newPoint.x = obOne.x;
+					newPoint.y = obOne.y + finalLength + 1;
+					newPoint.rot = 1; 
+				}
+				// newPoint.length = -42;
+				// std::cout << "tested true length: " << finalLength + 1 << " x: " << newPoint.x << " y: " << newPoint.y << " rot: " << (newPoint.rot == 0 ? "hor" : "ver") << std::endl;
+				dynamicStartingPoints.push_back(newPoint);
 
 				// NOTE before i consider this for 11th time, we do NOT have to consider both extreme positions of runways along their axis of available space
 				// 		dynamicSP will always be out of collision bounds, staticSP can not be moved at all if it's being collided with
@@ -214,24 +247,50 @@ int main() {
 					auto obTwo = itTwo->second;
 					if (itOne == itTwo)
 						continue;
-					bool didItCollide = doesCollide(obOne.x, obOne.y, obOne.length, obOne.rot, obTwo.x, obTwo.y, obTwo.length, obTwo.rot);
+					bool didItCollide = doesCollide(obOne.x, obOne.y, finalLength, obOne.rot, obTwo.x, obTwo.y, finalLength, obTwo.rot);
 					if (!didItCollide) {
 						// success, no collision, this is our answer
 						goto summary;						
 					}
 				}
 				// dynamic loop, measure field until desired finalLength is desired, make sure no collisions occur!
-				for (auto itTwo = dynamicItr; itTwo != dynamicStartingPoints.end(); itTwo++) {
-					auto obTwo = *itTwo;
-					bool didItCollide = doesCollide(obOne.x, obOne.y, obOne.length, obOne.rot, obTwo.x, obTwo.y, obTwo.length, obTwo.rot);
-					if (!didItCollide) {
-						// success
-						goto summary;
+				for (int iDyn = 0; iDyn < dynamicStartingPoints.size(); iDyn++) {
+					auto obDyn = dynamicStartingPoints[iDyn];
+					// browse the new dynamic path.
+					int len = 0;
+					bool isValid = false;
+					// TODO: for optimalization, this can be one time for the entire obOne testing and then modified
+					// ^^^^ TODO: if length = -1, measure length, else see if length is sufficient
+					for (; (obDyn.rot == 0 ? obDyn.x + len : obDyn.y + len) < airportSize; len++) {
+						if (obDyn.rot == 0) {
+							if (field[obDyn.y][obDyn.x+len] & (unsigned short)Bit::FILLED)
+								break;
+						} else {
+							if (field[obDyn.y+len][obDyn.x] & (unsigned short)Bit::FILLED)
+								break;
+						}
+						if (len == finalLength) {
+							isValid = true;
+							break;
+						}
+					}
+					if (isValid) {
+						// std::cout << "valid, but not collision-checked yet: a2 = [x:" << obDyn.x << ", y: " << obDyn.y << ", ptLen: " << obDyn.length << ", true len: " << finalLength + 1 << ']' << std::endl;
+						bool didItCollide = doesCollide(obOne.x, obOne.y, finalLength, obOne.rot, obDyn.x, obDyn.y, finalLength, obDyn.rot);
+						if (!didItCollide) {
+							// success
+							//std::cout << "no collision detected";
+							goto summary;
+						} else {
+							//std::cout << "valid but collision detected" << std::endl;
+						}
+					} else {
+						//std::cout << "collision detected with a2 = [x:" << obDyn.x << ", y: " << obDyn.y << ", ptLen: " << obDyn.length << ", true len: " << finalLength + 1 << ']' << std::endl;
 					}
 				}
 			}
 			finalLength--;
-		} while (finalLength > 0);
+		} while (finalLength >= 0);
 		summary:
 		std::cout << finalLength + 1;
 		return 0;
