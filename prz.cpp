@@ -8,11 +8,28 @@ struct Point {
 	bool isOn = false;
 };
 
-bool checkParity(std::array<bool, 100000> &parityContainer, int containerSize) {
-	for (int i = 0; i < containerSize; i++) {
-		
+int panelSize = -1, buttonAmount = -1, activatedButtons = 0;
+std::array<bool, 100000> verticalParity({0});
+std::array<bool, 100000> horizontalParity({0}); 
+std::array<Point, 500000> buttonList;
+int optimisticDistance = 0;
+
+void updateDistanceToSolution() {
+	int optimisticToEven = -1;
+	int optimisticToOdd = -1;
+}
+
+bool isParityHomogeneous() {
+	bool isHomogeneous = true;
+	bool desiredParity;
+	desiredParity = horizontalParity[0];
+	for (int i = 1; i < panelSize; i++) {
+		if (horizontalParity[i] != desiredParity || verticalParity[i] != desiredParity) {
+			isHomogeneous = false;
+			break;
+		}
 	}
-	return false;
+	return isHomogeneous;
 }
 
 int main() {
@@ -37,12 +54,11 @@ int main() {
 	// That is, if it will be even neccesary, these are some crazy numbers but after completing budzad i am
 	// quite surprised with how fast modern computers are.
 
-	int panelSize, buttonAmount;
-	std::cin >> panelSize >> buttonAmount;
+	// another approach instead of brute forcing every single combination would be to check every single outcome.
+	// first we try for odd, but no, we can't do that as 'odd' may mean 1, 3, 5 or anything like that up to
+	// 100000, and then in any combination possible
 
-	std::array<bool, 100000> verticalParity({0});
-	std::array<bool, 100000> horizontalParity({0}); 
-	std::array<Point, 500000> startingPoints;
+	std::cin >> panelSize >> buttonAmount;
 
 	// transfer data to field vvv
 	for (int i = 0; i < buttonAmount; i++) {
@@ -50,13 +66,65 @@ int main() {
 		// orig: cin >> row >> column
 		std::cin >> y >> x;
 		Point newPoint;
-		newPoint.x = x;
-		newPoint.y = y;
-		startingPoints[i] = newPoint;
+		newPoint.x = x - 1; // offset from min 1 to min 0
+		newPoint.y = y - 1; // offset from min 1 to min 0
+		buttonList[i] = newPoint;
 	}
 
-	for (int i = 0; i < buttonAmount; i++) {
-		
-	}
+	// ok so with this approach for now, treat all buttons as a sigle binary number, keep on incrementing first one by 1
+	// until, oh well that is 2^500000 max, isn't it? 2^500000 increments is an ungodly number, but if we implement the optimisticDistance function
+	// this may make some sense, but how do we check if it's the end of the loop? it's not like we can just see if i >= 2^500000
+	// Oh no i just calculated what this number is and there is no way any computer could do that, will still try just in case im mistaken with the number
+	// of iterations needed :) Ah repeating myself, but how much will it be? For m=4 it will be 1000, 0100, 1100, 0010, 1010, 0110, 1110, 0001, 1001, 0101, 1101, 0011, 1011, 0111, 1111
+	// oh yeah this is definietely 2^m-1 of iterations alone, damn, still 24pts for just m <= 20
+	
+	// anoter approach would be to jump through possible parities? not sure how that would work now that i am thinking about it.
 
+	do {
+		bool carryOver = true; // true for the first element
+		for (int additionIndex = 0; additionIndex <= buttonAmount; additionIndex++) {
+			if (additionIndex == buttonAmount) {
+				// todo: if addition has gone out of bounds this means our competion reached 100%, meaning our buttonList is now representing the number number 1111...1,
+				// we should finally evaluate everything and break the loop
+				std::cout << "NIE";
+				return 0;
+			}
+			// iterate first member
+			// if current index already 1, increment index, carry over
+			if (carryOver == true) {
+				auto btnObj = &buttonList[additionIndex];
+				// parity switched either way
+				horizontalParity[btnObj->x] = !horizontalParity[btnObj->x];
+				verticalParity[btnObj->y] = !verticalParity[btnObj->y];
+				if (btnObj->isOn == true) {
+					activatedButtons--;
+					btnObj->isOn = false;
+					carryOver = true;
+				} else {
+					activatedButtons++;
+					btnObj->isOn = true;
+					carryOver = false;
+					break;
+				}
+			} else {
+				break;
+			}
+		}
+
+		// success condition + output
+		if (isParityHomogeneous()) {
+			std::cout << "TAK" << std::endl;
+			std::cout << activatedButtons << std::endl;
+			// find switched buttons, list their index + 1
+			for (int i = 0; i < buttonAmount; i++) {
+				if (buttonList[i].isOn == true) {
+					std::cout << i + 1 << ' ';
+				}
+			}
+			return 0;
+		}
+	} while (1);
+
+	std::cout << "NIE";
+	return 0;
 }
