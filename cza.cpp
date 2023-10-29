@@ -43,41 +43,51 @@ int main() {
 	}
 
 	do {
-		// find current suffix
+		// find current suffix | verified
 		std::vector<char> currentSuffix(suffixLength);
 		for (int i = baseString.size() - suffixLength, j = 0; j < suffixLength; i++, j++) {
 			currentSuffix[j] = baseString[i];
-			std::cout << currentSuffix[j];
+			//std::cout << currentSuffix[j];
 		}
-		std::cout << " : Current suffix";
+		//std::cout << " : Current suffix" << std::endl;
 
-		// find each occurence of suffix (the hardcode is ugly but it will be easier to test and debug it later)
+		// find each occurence of suffix | FIXME: ERRORS come from here 
+		// (the hardcode is ugly but it will be easier to test and debug it later)
 		std::map<char, int> occurenceCounter {{'a', 0}, {'b', 0}, {'c', 0}, {'d', 0}, {'e', 0}, {'f', 0}, {'g', 0}, {'h', 0}, {'i', 0}, {'j', 0}, {'k', 0}, {'l', 0}, {'m', 0}, {'n', 0}, {'o', 0}, {'p', 0}, {'q', 0}, {'r', 0}, {'s', 0}, {'t', 0}, {'u', 0}, {'v', 0}, {'w', 0}, {'x', 0}, {'y', 0}, {'z', 0}};
 		for (int i = 0; i < baseString.size(); i++) {
+			//std::cout << "checking occurence for i = " << i << " : ";
 			bool isPresent = true;
-			for (int suffixIdx = 0; i + suffixIdx < baseString.size(); i++) {
+			for (int suffixIdx = 0; suffixIdx < suffixLength && i + suffixIdx < baseString.size(); suffixIdx++) {
+				//std::cout << baseString[suffixIdx + i];
 				if (baseString[suffixIdx + i] != currentSuffix[suffixIdx]) {
+					//std::cout << " terminated: " << baseString[suffixIdx + i] << "!=" << currentSuffix[suffixIdx];
 					isPresent = false;
 					break;
 				}
 			}
+			//std::cout << std::endl;
 			if (isPresent) {
+				//std::cout << "occurence present... ";
+				// if checks if this occurence isn't just the final, guaranteed occurence | verified
 				if (i + suffixLength < baseString.size()) {
+					//std::cout << "and confirmed";
 					occurenceCounter.at(baseString[i+suffixLength])++;
 				}
+				//std::cout << std::endl; 
 			}
 		}
 		
-		// find most common letter of all
-		char mostCommonLetter;
+		// find most common letter of all | verified
+		char mostCommonLetter = '.'; // dot for easier debugging
 		int mostOccurenceCount = 0;
 		for (auto it = occurenceCounter.begin(); it != occurenceCounter.end(); it++) {
+			//std::cout << it->first << ':' << it->second << std::endl;
 			// note: earlier letter in the alphabet takes priority in case of ties
 			if (it->second > mostOccurenceCount) {
 				mostCommonLetter = it->first;
 				mostOccurenceCount = it->second;
 				
-				std::cout << "appended letter: " << it->first;
+				//std::cout << "appended letter: " << it->first << std::endl;
 			}
 		}
 
