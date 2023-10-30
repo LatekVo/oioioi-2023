@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <ios>
 #include <iostream>
 #include <iterator>
 #include <limits>
@@ -7,7 +8,7 @@
 #include <sstream>
 #include <array>
 #include <vector>
-
+#include <sys/stat.h>
 // INPUTS:
 // n k a b
 // S
@@ -31,9 +32,11 @@
 // * We reisolate the R from our new S, then repeat this process until we extend S enough to output it's values specified by a and b variables.
 
 int main() {
-	int stringLength, suffixLength, outputIndexStart, outputIndexEnd;
+	unsigned long long stringLength, suffixLength, outputIndexStart, outputIndexEnd;
 	std::string inputString;
 	std::cin >> stringLength >> suffixLength >> outputIndexStart >> outputIndexEnd;
+
+	// FIXME: with large numbers, input by string is not feaseble, termination initiated by string after throwing 'std::out_of_range'
 	std::cin >> inputString;
 
 	// convert input to vector form, todo: test performance of this vs direct std::string	
@@ -51,7 +54,7 @@ int main() {
 		}
 		//std::cout << " : Current suffix" << std::endl;
 
-		// find each occurence of suffix | FIXME: ERRORS come from here 
+		// find each occurence of suffix | verified 
 		// (the hardcode is ugly but it will be easier to test and debug it later)
 		std::map<char, int> occurenceCounter {{'a', 0}, {'b', 0}, {'c', 0}, {'d', 0}, {'e', 0}, {'f', 0}, {'g', 0}, {'h', 0}, {'i', 0}, {'j', 0}, {'k', 0}, {'l', 0}, {'m', 0}, {'n', 0}, {'o', 0}, {'p', 0}, {'q', 0}, {'r', 0}, {'s', 0}, {'t', 0}, {'u', 0}, {'v', 0}, {'w', 0}, {'x', 0}, {'y', 0}, {'z', 0}};
 		for (int i = 0; i < baseString.size(); i++) {
@@ -78,7 +81,7 @@ int main() {
 		}
 		
 		// find most common letter of all | verified
-		char mostCommonLetter = '.'; // dot for easier debugging
+		char mostCommonLetter = 'a'; // apparently if no other option is available, 'a' takes the priority as it's the first letter of the set of all letters equally eligible
 		int mostOccurenceCount = 0;
 		for (auto it = occurenceCounter.begin(); it != occurenceCounter.end(); it++) {
 			//std::cout << it->first << ':' << it->second << std::endl;
@@ -95,13 +98,20 @@ int main() {
 	} while (baseString.size() < outputIndexEnd);
 
 	//std::cout << baseString.size() << std::endl;
+	// it looks like 99% of runtime is just io operations
+	std::ios_base::sync_with_stdio(false);
+	std::cout << std::unitbuf;
+	// vvv sets buffer size to optimal bulk size, ref: https://en.cppreference.com/w/cpp/io/c/setvbuf
+	struct stat stats;
+	std::setvbuf(stdin, nullptr, _IOFBF, stats.st_blksize);
+	// ^^^ code above does not change runtime speed too much, will test it with the last test if i manage to get it working
 
 	std::string outputString;
 	for (int i = outputIndexStart - 1; i < outputIndexEnd; i++) {
 		outputString.push_back(baseString[i]);
 		// std::cout << i << ':' << baseString[i] << std::endl;
 	}
-	std::cout << outputString;
+	std::cout << outputString << std::flush;
 
 	return 0;
 }
