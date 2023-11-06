@@ -71,20 +71,47 @@ int main() {
 	//std::sort(lectureList.begin(), lectureList.end(), [] (Lecture a, Lecture b) { return a.end == b.end ? (a.start < b.start) : (a.end < b.end);});
 	// sort by start only
 	std::sort(lectureList.begin(), lectureList.end(), [] (Lecture a, Lecture b) { return a.start < b.start; });
+	// sort a separate list by end
 	
+	// NOTE: Approach 4.0, this one i am quite positive is the final solution,
+	// besides having a list sorted by start, then one by end, here is what we do,
+	// as the main lecture we pick the earliest starting lecture in range,
+	// as the backup lecture we pick the earliest finishing lecture in range,
+	// we alternate, primary, backup, primary, backup. That's how it goes, that's all there is to this approach.
+	std::vector<std::pair<Lecture, Lecture>> outputList;
+
+
+		
 	// NOTE: Approach 3.0, this time we consider the fact that backup may extend indefinietely outwards
 	// we will consider a 3 step approach: 
 	// we need to operate sequentially, we will only know how much we can afford if we try to fit our new pairs in with the old ones.
 	// * for the first element, we create a pair with earliest possible combined ending time (prim + backup), until we find the most optimal one
 	// * for each next pair, we find the earliest ending pair, 
 	//   we stop searching as soon as the starting points of our new prims start being later than the ending points of our best prim
-	// 
+	// * when we find a valid pair, that's also the best of the selected time-frame, we place it into a trasition valid-pairs vector, out of there we probably either output that or
+	//   filter out the most optimal lectures only
+	/*
 	std::vector<std::pair<Lecture, Lecture>> outputList;
 	size_t bestCombinedEnd = 1000000001;
+
 	for (int i = 0; i < lectureList.size(); i++) {
-		auto currentLecture = lectureList[i];
+		Lecture currentPrimary = lectureList[i];
 		
-		if (currentLecture.start > bestCombinedEnd) {
+		if (currentPrimary.start <= bestCombinedEnd) {
+			// found a valid starting point, see if it has a matching backup that's better what we currently have
+			// valid: backup.end >= prim.end, backup.start >= prim.start, backup.end < bestCombinedEnd
+			Lecture bestBackup = {};
+			bool foundBackup = false;
+			for (int j = 0; j < lectureList.size(); j++) {
+				Lecture currentBackup = lectureList[j];
+				if (!()) {
+
+				}
+			}
+			if (foundBackup) {
+
+			}
+		} else {
 			// lock in the best found, as no better one will be found
 		
 			// reset variables
@@ -93,6 +120,7 @@ int main() {
 
 		
 	}
+	*/
 	// NOTE: Approach 2.0
 	/*
 	bool needReset = true;
