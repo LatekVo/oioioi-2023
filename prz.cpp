@@ -12,21 +12,29 @@ int panelSize = -1, buttonAmount = -1, activatedButtons = 0;
 std::array<bool, 100000> verticalParity({0});
 std::array<bool, 100000> horizontalParity({0}); 
 std::array<Point, 500000> buttonList;
-int optimisticDistance = 0;
 
-void updateDistanceToSolution() {
-	int optimisticToEven = -1;
-	int optimisticToOdd = -1;
-}
+int optimisticToEven = 0;
+int optimisticToOdd = 0;
 
 bool isParityHomogeneous() {
+	optimisticToOdd = 0;
+	optimisticToEven = 0;
 	bool isHomogeneous = true;
 	bool desiredParity;
 	desiredParity = horizontalParity[0];
 	for (int i = 1; i < panelSize; i++) {
 		if (horizontalParity[i] != desiredParity || verticalParity[i] != desiredParity) {
 			isHomogeneous = false;
-			break;
+		}
+		if (horizontalParity[i] % 2 == 0) {
+			optimisticToOdd++;
+		} else {
+			optimisticToEven++;
+		}
+		if (verticalParity[i] % 2 == 0) {
+			optimisticToOdd++;
+		} else {
+			optimisticToEven++;
 		}
 	}
 	return isHomogeneous;
@@ -57,6 +65,15 @@ int main() {
 	// another approach instead of brute forcing every single combination would be to check every single outcome.
 	// first we try for odd, but no, we can't do that as 'odd' may mean 1, 3, 5 or anything like that up to
 	// 100000, and then in any combination possible
+
+	/* PLAN FOR V2:
+		- identify sole points of decision about parity, exclude them from the bruteforcing list
+	   	- 'optimistic distance' optimalization
+		- identify required points, as well as impossible points, and required rows.
+		 ^ example would be a row with no buttons, or a row with 2 sole buttons only,
+		 ^ in case of 2 sole points in one row, both HAVE TO be disabled, 
+		 ^ otherwise their row would be even while their columns both odd
+	*/
 
 	std::cin >> panelSize >> buttonAmount;
 
@@ -100,6 +117,13 @@ int main() {
 					activatedButtons--;
 					btnObj->isOn = false;
 					carryOver = true;
+					if (horizontalParity[btnObj->x] % 2 == 0) {
+						optimisticToOdd++;
+						optimisticToEven++;
+					} else {
+						optimisticToEven++;
+						optimisticToOdd++;
+					}
 				} else {
 					activatedButtons++;
 					btnObj->isOn = true;
@@ -111,17 +135,20 @@ int main() {
 			}
 		}
 
-		// success condition + output
-		if (isParityHomogeneous()) {
-			std::cout << "TAK" << std::endl;
-			std::cout << activatedButtons << std::endl;
-			// find switched buttons, list their index + 1
-			for (int i = 0; i < buttonAmount; i++) {
-				if (buttonList[i].isOn == true) {
-					std::cout << i + 1 << ' ';
+		// optimalization condition met
+		if (optimisticToOdd <= 0 || optimisticToEven <= 0) {
+			// success condition + output
+			if (isParityHomogeneous()) {
+				std::cout << "TAK" << std::endl;
+				std::cout << activatedButtons << std::endl;
+				// find switched buttons, list their index + 1
+				for (int i = 0; i < buttonAmount; i++) {
+					if (buttonList[i].isOn == true) {
+						std::cout << i + 1 << ' ';
+					}
 				}
+				return 0;
 			}
-			return 0;
 		}
 	} while (1);
 

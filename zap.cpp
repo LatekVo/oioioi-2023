@@ -70,17 +70,132 @@ int main() {
 	// sort by end, then start
 	//std::sort(lectureList.begin(), lectureList.end(), [] (Lecture a, Lecture b) { return a.end == b.end ? (a.start < b.start) : (a.end < b.end);});
 	// sort by start only
-	std::sort(lectureList.begin(), lectureList.end(), [] (Lecture a, Lecture b) { return a.start < b.start; });
-	// sort a separate list by end
-	
+	//std::sort(lectureList.begin(), lectureList.end(), [] (Lecture a, Lecture b) { return a.start < b.start; });
+	// sort by end only
+	std::sort(lectureList.begin(), lectureList.end(), [] (Lecture a, Lecture b) { return a.end < b.end; });
+			
 	// NOTE: Approach 4.0, this one i am quite positive is the final solution,
 	// besides having a list sorted by start, then one by end, here is what we do,
 	// as the main lecture we pick the earliest starting lecture in range,
 	// as the backup lecture we pick the earliest finishing lecture in range,
 	// we alternate, primary, backup, primary, backup. That's how it goes, that's all there is to this approach.
+	// No another revision, we only sort by end, we pick 2 earliest ending lectures and mark them as primary and secondary, repeat untill we have no more
 	std::vector<std::pair<Lecture, Lecture>> outputList;
+	std::vector<Lecture> firstPassList;
+	std::vector<Lecture> backupList;
 
+	
+	// TODO: create this second loop that i described earlier, then if length of both this, and the previous outputs is the same, choose the previous one,
+	// otherwise choose this one, there will be cases for inbetween for sure so i will probably have to refactor everything later, but this algo 
+	// will be the first one which will give the correct answers, just not in the predefined way
 
+	// TODO for back index, find the last variable which starts the latest
+	
+	// OK so here are the latests steps:
+	// * fill firstPassList with the best end algorithm
+	// * fill backupList by checking available space between other lectures
+	// * if backupList does not cover all elements, move the last element of the firstPassList into the backupList
+	// * merge two lists, iterate from end, having a semi-constant backup that gets changed every time other is available
+	
+	// * fill firstPassList with the best end algorithm
+	for (size_t i = 0; i < lectureList.size(); i++) {
+		if (lectureList[i].id == 0)
+			continue; // omit erranous empty objects introduced by std::sort
+
+		static size_t lastEndingTime = 0;
+		if (lectureList[i].start >= lastEndingTime) {
+			firstPassList.push_back(lectureList[i]);
+			lastEndingTime = lectureList[i].end;
+			std::cout << lectureList[i].id << ' ';
+		}
+	}
+	std::cout << std::endl;	
+	// * fill backupList by checking available space between other lectures
+	for (size_t i = 0; i < lectureList.size(); i++) {
+		static int primIdx = -1, backIdx = -1;
+		static int amountChosen = 0; // at 2, flush cache to output vector, validity verified upon choosing.
+		static size_t lastEndingTime = 0; // always optimal, cannot be passed by any new starting time
+		// rules: 1: no lecture may start before the end of the previous package. 2: if backup starts before primary, swap them.
+		// always true: list[i+1].end >= list[i].end 
+	
+		// sorting seems to introduce some empty lectures, unexpected but the numbers are all 0 it's fine if we just skip them
+		if (lectureList[i].start < lastEndingTime || lectureList[i].id == 0)
+			continue;
+		
+		primIdx = i;
+
+		outputList.push_back(std::pair<Lecture, Lecture>(lectureList[primIdx], lectureList[backIdx]));
+
+		if (lectureList[primIdx].end > lectureList[backIdx].end) {
+			lastEndingTime = lectureList[primIdx].end;
+		} else {
+			lastEndingTime = lectureList[backIdx].end;
+		}
+
+		primIdx = -1;
+	}
+	
+	// * if backupList does not cover all elements, move the last element of the firstPassList into the backupList
+	if (backupList.size() == 0) {
+		backupList.push_back(firstPassList[firstPassList.size() - 1]);
+		firstPassList.pop_back();
+	}
+	
+	// * merge two lists, iterate from 0, having a semi-constant backup that gets changed every time other is available
+	for (size_t i = 0; i < firstPassList.size(); i++) {
+		static int backIdx = 0;
+		outputList.push_back(std::pair<Lecture, Lecture>(firstPassList[i], backupList[backIdx]));	
+	}
+	
+	// HEADS UP, this loop gives the expected output when such approach is possible, for larger cases etc,
+	// we have to find the smallest or the least interfering backup, then assign it to every single lecture,
+	// i believe this kind of a backup only applies to primaries before it, and not after it, thus it's most reasonable
+	// to pick the last lecture as the backup for all the rest. This is the most optimal algorithm even for the smallest sets,
+	// unfortunately it's not the expected answer and i have to abide not only by the requirements, but also by the tests.
+	/* Removed this, it can be substituted with the latest algorithm
+	for (size_t i = 0; i < lectureList.size(); i++) {
+		// rules: 1: no lecture may start before the end of the previous package. 2: if backup starts before primary, swap them.
+		// always true: list[i+1].end >= list[i].end 
+	
+		// sorting seems to introduce some empty lectures, unexpected but the numbers are all 0 it's fine if we just skip them
+		if (lectureList[i].start < lastEndingTime || lectureList[i].id == 0)
+			continue;
+
+		if (amountChosen < 2) {
+			if (primIdx == -1) {
+				primIdx = i;
+			} else {
+				backIdx = i;
+			}
+
+			amountChosen++;
+		}
+
+		if (amountChosen == 2) {
+			if (lectureList[primIdx].start > lectureList[backIdx].start) {
+				size_t tmp = primIdx;
+				primIdx = backIdx;
+				backIdx = tmp;
+			}
+
+			outputList.push_back(std::pair<Lecture, Lecture>(lectureList[primIdx], lectureList[backIdx]));
+
+			if (lectureList[primIdx].end > lectureList[backIdx].end) {
+				lastEndingTime = lectureList[primIdx].end;
+			} else {
+				lastEndingTime = lectureList[backIdx].end;
+			}
+
+			primIdx = -1;
+			backIdx = -1;
+			amountChosen = 0;
+		}
+	}
+	*/
+
+	// Update: so like in ocen1, we see that every lecture has a separate backup selected, but in ocen2 and ocen3, all lectures have a single non-unique lecture as the backup,
+	// this is a consequence of this wording: "If any single one of the primary lectures were to be cancelled, Bajtek wants to have a backup lecture which he could attend, that doesn't collide with any other lecture."
+	//
 		
 	// NOTE: Approach 3.0, this time we consider the fact that backup may extend indefinietely outwards
 	// we will consider a 3 step approach: 
